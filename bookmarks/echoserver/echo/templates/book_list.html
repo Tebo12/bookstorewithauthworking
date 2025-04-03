@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Book List</title>
+    <style>
+        .button {
+            background-color: #4CAF50; /* green */
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .button.edit {
+            background-color: #008CBA; /* blue */
+        }
+        .button.delete {
+            background-color: #f44336; /* red */
+        }
+    </style>
+</head>
+<body>
+    <h1>Books</h1>
+
+    {% if is_authenticated %}
+        <p>Вы вошли как: <strong>{{ username }}</strong></p>
+        <a href="{% url 'logout' %}" class="button">Выйти</a>
+    {% else %}
+        <a href="{% url 'login' %}" class="button">Войти</a>
+        <a href="{% url 'register' %}" class="button">Зарегистрироваться</a>
+    {% endif %}
+
+    {% if is_authenticated %}
+        <a href="{% url 'book_add' %}" class="button">Добавить книгу</a>
+    {% endif %}
+
+    <ul>
+        {% for book in books %}
+            <li>
+                {{ book.title }} by {{ book.author }} - ${{ book.price }}
+
+                {% if is_authenticated and is_admin %}
+                    <a href="{% url 'book_edit' book.pk %}" class="button edit">Редактировать</a>
+                    <form action="{% url 'book_delete' book.pk %}" method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="button delete">Удалить</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
