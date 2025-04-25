@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 
 from django.contrib import messages
-from .models import Book
+from .models import Book, User, CartItem, Order, OrderItem
 from .forms import RegistrationForm, LoginForm, BookForm
 from .utils import login_required, admin_required
 
@@ -16,8 +16,10 @@ from .models import Book, User
 from .forms import RegistrationForm, LoginForm, BookForm
 from .utils import login_required, admin_required
 
-
 from django.contrib.auth.hashers import make_password, check_password
+from datetime import datetime
+from django.http import JsonResponse
+
 def register(request):
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
@@ -76,7 +78,9 @@ def login(request):
                 request.session['username'] = user.username
                 print(f"✅ Успешная аутентификация пользователя: {user.username}", file=sys.stderr)
                 messages.success(request, f'Добро пожаловать, {user.username}!')
-                return redirect('book_list')
+                response = redirect('book_list')
+                response.set_cookie('last_visited', datetime.now(), max_age=30*24*60*60)
+                return response
             else:
                 print(f"❌ Ошибка входа: Неверный пароль для {username}", file=sys.stderr)
                 messages.error(request, 'Неверное имя пользователя или пароль.')
@@ -101,11 +105,23 @@ def logout(request):
 
 def book_list(request):
     books = Book.objects.all()
+    
+    # Фильтрация
+    if author := request.GET.get('author'):
+        books = books.filter(author__icontains=author)
+    if min_price := request.GET.get('min_price'):
+        books = books.filter(price__gte=min_price)
+    if max_price := request.GET.get('max_price'):
+        books = books.filter(price__lte=max_price)
+    
     context = {
         'books': books,
         'is_authenticated': 'user_id' in request.session,
         'username': request.session.get('username'),
-        'is_admin': request.session.get('role') == 'admin'
+        'is_admin': request.session.get('role') == 'admin',
+        'cart_items_count': CartItem.objects.filter(
+            user_id=request.session.get('user_id')
+        ).count() if 'user_id' in request.session else 0
     }
     return render(request, 'book_list.html', context)
 
@@ -145,3 +161,88 @@ def book_delete(request, pk):
         messages.success(request, 'Книга удалена.')
         return redirect('book_list')
     return render(request, 'book_confirm_delete.html', {'book': book})
+
+@login_required
+def profile(request):
+    user = User.objects.get(id=request.session['user_id'])
+    if request.method == 'POST':
+        user.email = request.POST.get('email')
+        user.first_name = request.POST.get('first_name')
+        user.save()
+        messages.success(request, 'Данные успешно обновлены!')
+        return redirect('profile')
+    return render(request, 'profile.html', {'user': user})
+
+@login_required
+def cart_view(request):
+    cart_items = CartItem.objects.filter(user_id=request.session['user_id']).select_related('book')
+    total = sum(item.book.price * item.quantity for item in cart_items)
+    return render(request, 'cart.html', {
+        'cart_items': cart_items,
+        'total': total
+    })
+
+@login_required
+def add_to_cart(request, book_id):
+    book = get_object_or_404(Book, pk=book_id)
+    user_id = request.session['user_id']
+    
+    cart_item, created = CartItem.objects.get_or_create(
+        user_id=user_id,
+        book=book,
+        defaults={'quantity': 1}
+    )
+    
+    if not created:
+        cart_item.quantity += 1
+        cart_item.save()
+    
+    messages.success(request, 'Книга добавлена в корзину')
+    return redirect('book_list')
+
+@login_required
+def remove_from_cart(request, item_id):
+    cart_item = get_object_or_404(CartItem, pk=item_id, user_id=request.session['user_id'])
+    cart_item.delete()
+    messages.success(request, 'Книга удалена из корзины')
+    return redirect('cart')
+
+@login_required
+def checkout(request):
+    user_id = request.session['user_id']
+    cart_items = CartItem.objects.filter(user_id=user_id).select_related('book')
+    
+    if not cart_items:
+        messages.error(request, 'Корзина пуста')
+        return redirect('cart')
+    
+    total = sum(item.book.price * item.quantity for item in cart_items)
+    
+    with transaction.atomic():
+        order = Order.objects.create(
+            user_id=user_id,
+            total_price=total
+        )
+        
+        for item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                book=item.book,
+                quantity=item.quantity,
+                price=item.book.price
+            )
+        
+        cart_items.delete()
+    
+    messages.success(request, f'Заказ #{order.id} успешно оформлен!')
+    return redirect('orders')
+
+@login_required
+def order_history(request):
+    orders = Order.objects.filter(user_id=request.session['user_id']).prefetch_related('orderitem_set__book')
+    return render(request, 'orders.html', {'orders': orders})
+
+def check_username(request):
+    username = request.GET.get('username', '')
+    exists = User.objects.filter(username=username).exists()
+    return JsonResponse({'exists': exists})

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Корзина покупок{% endblock %}
+
+{% block content %}
+<h2>🛒 Ваша корзина</h2>
+{% for item in cart_items %}
+<div class="cart-item">
+    <h3>{{ item.book.title }}</h3>
+    <p>Количество: {{ item.quantity }}</p>
+    <p>Цена за шт: {{ item.book.price }} ₽</p>
+    <a href="{% url 'remove_from_cart' item.id %}" class="button delete">Удалить</a>
+</div>
+{% endfor %}
+
+<p class="total">💰 Итого: {{ total }} ₽</p>
+<a href="{% url 'checkout' %}" class="button">Оформить заказ</a>
+{% endblock %}
