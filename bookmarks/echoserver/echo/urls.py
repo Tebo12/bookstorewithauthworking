@@ -14,7 +14,7 @@ urlpatterns = [
     path('login/', views.login, name='login'),
     path('logout/', views.logout, name='logout'),
 
-    # Личный кабинет и корзина
+    #Личный кабинет и корзина
     path('profile/', views.profile, name='profile'),
     path('cart/', views.cart_view, name='cart'),
     path('add_to_cart/<int:book_id>/', views.add_to_cart, name='add_to_cart'),

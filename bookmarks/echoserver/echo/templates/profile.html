@@ -37,7 +37,7 @@
     {% include 'book_list.html' with is_authenticated=is_authenticated username=username is_admin=is_admin cart_items_count=cart_items_count %}
     
     <div class="profile-container">
-        <h2>👤 Ваш профиль</h2>
+        <h2> Ваш профиль</h2>
         <form method="post">
             {% csrf_token %}
             <div class="form-group">

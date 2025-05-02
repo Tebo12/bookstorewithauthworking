@@ -29,14 +29,14 @@
 document.getElementById('registerForm').addEventListener('submit', function(e) {
     let valid = true;
     
-    // Валидация email
+    //Валидация email
     const email = document.getElementById('id_email').value;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         document.getElementById('emailError').textContent = 'Некорректный email';
         valid = false;
     }
     
-    // Валидация пароля
+    //Валидация пароля
     const password = document.getElementById('id_password').value;
     if (password.length < 6) {
         document.getElementById('passwordError').textContent = 'Пароль должен быть не менее 6 символов';
@@ -46,7 +46,7 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
     if (!valid) e.preventDefault();
 });
 
-// AJAX проверка логина
+//AJAX проверка логина
 document.getElementById('id_username').addEventListener('blur', function() {
     const username = this.value;
     fetch(`/check_username/?username=${encodeURIComponent(username)}`)
